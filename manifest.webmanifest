@@ -1,0 +1,18 @@
+{
+  "name": "WAF 安全規則檢測器",
+  "short_name": "WAF Checker",
+  "description": "可離線使用的 WAF 規則檢測工具，支援 Azure 風格風險分數判定。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

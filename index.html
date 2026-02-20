@@ -1,0 +1,1466 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAF 安全規則檢測器</title>
+    <meta name="description" content="React + CSS 的 WAF 規則檢測工具，支援 RULE 清單、自訂規則庫、回歸測試、WebMCP 通訊與 PWA 離線使用。" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <style>
+      :root {
+        --bg: #f7f7f7;
+        --card: #ffffff;
+        --text: #101010;
+        --muted: #4a4a4a;
+        --border: #d6d6d6;
+        --primary: #111111;
+        --primary-fg: #ffffff;
+        --danger: #8b0000;
+        --warning: #8a6d00;
+        --ok: #0f5f22;
+        --code-bg: #111111;
+        --code-fg: #f0f0f0;
+      }
+      :root[data-theme="dark"] {
+        --bg: #0a0a0a;
+        --card: #111111;
+        --text: #f5f5f5;
+        --muted: #c2c2c2;
+        --border: #2e2e2e;
+        --primary: #ffffff;
+        --primary-fg: #111111;
+        --danger: #ff9b9b;
+        --warning: #ffd278;
+        --ok: #a4ffbb;
+        --code-bg: #000000;
+        --code-fg: #f5f5f5;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap { max-width: 1260px; margin: 0 auto; padding: 16px; }
+      .header { margin-bottom: 12px; display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+      .header h1 { margin: 0 0 6px; font-size: clamp(1.25rem, 2.7vw, 2rem); }
+      .header p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+      .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .tabbar { display: flex; gap: 8px; margin: 10px 0 14px; flex-wrap: wrap; }
+      .tab {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      .tab.active { outline: 2px solid var(--primary); }
+      .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+      .grid-rules { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+      .grid-dashboard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        min-width: 0;
+      }
+      .card h2 { margin: 0 0 10px; font-size: 1rem; }
+      label { display: block; font-size: 0.86rem; font-weight: 600; margin: 10px 0 6px; }
+      input, textarea, select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.92rem;
+        background: var(--card);
+        color: var(--text);
+      }
+      textarea { min-height: 96px; resize: vertical; }
+      .kvs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      button {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        background: var(--card);
+        color: var(--text);
+      }
+      .btn-primary { background: var(--primary); color: var(--primary-fg); }
+      .btn-soft { background: var(--card); }
+      .btn-danger { border-color: var(--danger); color: var(--danger); }
+      .status {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        border: 1px solid var(--border);
+      }
+      .status.ok { color: var(--ok); }
+      .status.warn { color: var(--warning); }
+      .status.block { color: var(--danger); }
+      .meta { margin-top: 10px; color: var(--muted); font-size: 0.82rem; }
+      .small { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+      .result-list, .rule-list, .test-list {
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .result-item, .rule-item, .test-item {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 9px;
+        background: var(--card);
+      }
+      .rule-item { cursor: pointer; }
+      .rule-item.active { outline: 2px solid var(--primary); }
+      .result-item strong, .rule-item strong, .test-item strong { display: block; margin-bottom: 4px; }
+      .pill {
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .code {
+        background: var(--code-bg);
+        color: var(--code-fg);
+        border-radius: 8px;
+        padding: 10px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .inline-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+      .chart-wrap { width: 100%; min-height: 280px; }
+      .chart-wrap svg { width: 100%; height: 280px; display: block; }
+      .chart-note { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+      .footer {
+        margin-top: 18px;
+        padding: 12px;
+        border-top: 1px solid var(--border);
+        font-size: 0.88rem;
+        color: var(--muted);
+        text-align: center;
+      }
+      .footer a { color: inherit; }
+      @media (max-width: 980px) {
+        .grid, .grid-rules, .grid-dashboard { grid-template-columns: 1fr; }
+        .kvs { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/babel">
+      const { useMemo, useState, useEffect, useRef } = React;
+      const d3 = window.d3;
+
+      const I18N = {
+        zh: {
+          title: "WAF 安全規則檢測器",
+          subtitle: "支援 RULE 清單、自訂規則庫、回歸測試、黑白主題、WebMCP 通訊。",
+          tabScan: "檢測頁",
+          tabRules: "RULE 清單",
+          tabRegression: "回歸測試",
+          tabDashboard: "覆蓋率儀表板",
+          inputAndRules: "輸入與規則設定",
+          path: "PATH",
+          query: "QUERY STRING",
+          method: "HTTP METHOD",
+          header: "HEADER（每行 key: value）",
+          bodyRaw: "BODY raw（POST/PUT）",
+          bodyFormData: "BODY form-data（每行 key=value）",
+          threshold: "Azure 風格封鎖門檻（Anomaly Score）",
+          totalRules: "規則總數",
+          mode: "檢測規則範圍",
+          modeAll: "全部規則",
+          modeCustom: "僅自訂規則庫",
+          customCount: "自訂規則數",
+          ruleJson: "規則庫 JSON",
+          loadDefault: "載入預設規則",
+          checkCrs: "驗證官方 CRS 來源",
+          validate: "檢查規則齊全性",
+          run: "執行檢測",
+          export: "匯出 JSON 報告",
+          result: "檢測結果",
+          decision: "判定",
+          score: "Anomaly Score",
+          matched: "命中規則",
+          resultSource: "違反位置",
+          resultViolation: "違反內容",
+          resultRuleGroup: "規則群組",
+          noMatch: "未發現違反規則。",
+          generated: "離線可用：產生規則碼",
+          notice: "此工具為安全檢測輔助，不可取代正式 WAF 與專業滲透測試。",
+          ruleList: "RULE 列表",
+          searchRule: "搜尋 RULE（ID、名稱、分類、描述）",
+          ruleDetail: "RULE 詳細資訊",
+          triggerCond: "觸發條件（Regex）",
+          attackType: "攻擊類型",
+          exampleUrl: "範例 URL（可直接測試）",
+          testRule: "測試此規則",
+          addCustom: "加入自訂規則庫",
+          removeCustom: "移出自訂規則庫",
+          selectedHint: "請在左側選擇一條規則查看詳細資訊。",
+          noRule: "查無符合的規則。",
+          ruleTag: "TAG 篩選",
+          allTags: "全部 TAG",
+          sampleResHit: "範例 URL 測試：會觸發此規則",
+          sampleResNo: "範例 URL 測試：不會觸發此規則",
+          theme: "主題",
+          light: "白",
+          dark: "黑",
+          exportCustom: "匯出自訂規則庫 JSON",
+          importCustom: "匯入自訂規則庫 JSON",
+          regressionTitle: "小型回歸測試清單",
+          runRegression: "執行全部測試",
+          passed: "通過",
+          failed: "失敗",
+          expect: "預期",
+          actual: "實際",
+          dashboardTitle: "規則覆蓋率儀表板",
+          dashboardCategory: "類別分佈",
+          dashboardOwasp: "OWASP 標籤分佈",
+          dashboardHotspot: "最近一次掃描命中熱點",
+          dashboardFilterCategory: "儀表板類別篩選",
+          dashboardFilterOwasp: "儀表板 OWASP 篩選",
+          exportPng: "匯出圖表 PNG",
+          exportCsv: "匯出檢測熱點 CSV",
+          exportJson: "匯出檢測熱點 JSON",
+          exportCategoryPng: "匯出類別圖 PNG",
+          exportOwaspPng: "匯出 OWASP 圖 PNG",
+          exportHotspotPng: "匯出熱點圖 PNG",
+          noData: "暫無資料"
+        },
+        en: {
+          title: "WAF Rule Checker",
+          subtitle: "Supports rule explorer, custom rules, regression tests, B/W theme, and WebMCP communication.",
+          tabScan: "Scanner",
+          tabRules: "Rule Explorer",
+          tabRegression: "Regression",
+          tabDashboard: "Coverage Dashboard",
+          inputAndRules: "Input & Rule Settings",
+          path: "PATH",
+          query: "QUERY STRING",
+          method: "HTTP METHOD",
+          header: "HEADER (one key: value per line)",
+          bodyRaw: "BODY raw (POST/PUT)",
+          bodyFormData: "BODY form-data (one key=value per line)",
+          threshold: "Azure-style Block Threshold (Anomaly Score)",
+          totalRules: "Rule Count",
+          mode: "Detection Scope",
+          modeAll: "All Rules",
+          modeCustom: "Custom Rules Only",
+          customCount: "Custom Rule Count",
+          ruleJson: "Rule JSON",
+          loadDefault: "Load Default Rules",
+          checkCrs: "Verify CRS Source",
+          validate: "Validate Completeness",
+          run: "Run Scan",
+          export: "Export JSON Report",
+          result: "Detection Result",
+          decision: "Decision",
+          score: "Anomaly Score",
+          matched: "Matched Rules",
+          resultSource: "Violation Source",
+          resultViolation: "Violation Snippet",
+          resultRuleGroup: "Rule Group",
+          noMatch: "No violations matched.",
+          generated: "Offline-Ready Generated Rules",
+          notice: "This tool is an assistant and does not replace production WAF/security testing.",
+          ruleList: "Rule List",
+          searchRule: "Search rules (ID, name, category, description)",
+          ruleDetail: "Rule Details",
+          triggerCond: "Trigger Condition (Regex)",
+          attackType: "Attack Type",
+          exampleUrl: "Example URL",
+          testRule: "Test This Rule",
+          addCustom: "Add to Custom Library",
+          removeCustom: "Remove from Custom Library",
+          selectedHint: "Select a rule from the left panel to see details.",
+          noRule: "No matching rules.",
+          ruleTag: "Tag Filter",
+          allTags: "All Tags",
+          sampleResHit: "Sample URL test: this rule would trigger",
+          sampleResNo: "Sample URL test: this rule would not trigger",
+          theme: "Theme",
+          light: "White",
+          dark: "Black",
+          exportCustom: "Export Custom Rules JSON",
+          importCustom: "Import Custom Rules JSON",
+          regressionTitle: "Mini Regression Checklist",
+          runRegression: "Run All Tests",
+          passed: "Passed",
+          failed: "Failed",
+          expect: "Expected",
+          actual: "Actual",
+          dashboardTitle: "Rule Coverage Dashboard",
+          dashboardCategory: "Category Distribution",
+          dashboardOwasp: "OWASP Tag Distribution",
+          dashboardHotspot: "Latest Scan Hotspots",
+          dashboardFilterCategory: "Category Filter",
+          dashboardFilterOwasp: "OWASP Filter",
+          exportPng: "Export Chart PNG",
+          exportCsv: "Export Detection Hotspot CSV",
+          exportJson: "Export Detection Hotspot JSON",
+          exportCategoryPng: "Export Category PNG",
+          exportOwaspPng: "Export OWASP PNG",
+          exportHotspotPng: "Export Hotspot PNG",
+          noData: "No data"
+        },
+        ja: {
+          title: "WAF ルールチェッカー",
+          subtitle: "ルール一覧、カスタムルール、回帰テスト、白黒テーマ、WebMCP 通信をサポート。",
+          tabScan: "検査",
+          tabRules: "ルール一覧",
+          tabRegression: "回帰テスト",
+          tabDashboard: "カバレッジダッシュボード",
+          inputAndRules: "入力とルール設定",
+          path: "PATH",
+          query: "QUERY STRING",
+          method: "HTTP METHOD",
+          header: "HEADER（1行ずつ key: value）",
+          bodyRaw: "BODY raw（POST/PUT）",
+          bodyFormData: "BODY form-data（1行ずつ key=value）",
+          threshold: "Azure風ブロックしきい値（Anomaly Score）",
+          totalRules: "ルール数",
+          mode: "検査ルール範囲",
+          modeAll: "全ルール",
+          modeCustom: "カスタムルールのみ",
+          customCount: "カスタムルール数",
+          ruleJson: "ルール JSON",
+          loadDefault: "デフォルトルール読込",
+          checkCrs: "CRS ソース確認",
+          validate: "完全性チェック",
+          run: "検査実行",
+          export: "JSON レポート出力",
+          result: "検査結果",
+          decision: "判定",
+          score: "Anomaly Score",
+          matched: "ヒット数",
+          resultSource: "違反箇所",
+          resultViolation: "違反内容",
+          resultRuleGroup: "ルールグループ",
+          noMatch: "違反ルールは見つかりませんでした。",
+          generated: "オフライン対応：生成ルール",
+          notice: "本ツールは補助用途であり、本番 WAF や専門診断の代替ではありません。",
+          ruleList: "ルール一覧",
+          searchRule: "ルール検索（ID、名前、分類、説明）",
+          ruleDetail: "ルール詳細",
+          triggerCond: "トリガー条件（Regex）",
+          attackType: "攻撃タイプ",
+          exampleUrl: "サンプル URL",
+          testRule: "このルールをテスト",
+          addCustom: "カスタムに追加",
+          removeCustom: "カスタムから削除",
+          selectedHint: "左側でルールを選択してください。",
+          noRule: "該当ルールがありません。",
+          ruleTag: "TAG フィルター",
+          allTags: "すべての TAG",
+          sampleResHit: "サンプルURLテスト：このルールは発火します",
+          sampleResNo: "サンプルURLテスト：このルールは発火しません",
+          theme: "テーマ",
+          light: "白",
+          dark: "黒",
+          exportCustom: "カスタムルール JSON 出力",
+          importCustom: "カスタムルール JSON 取込",
+          regressionTitle: "ミニ回帰テスト",
+          runRegression: "全テスト実行",
+          passed: "成功",
+          failed: "失敗",
+          expect: "期待",
+          actual: "実際",
+          dashboardTitle: "ルールカバレッジダッシュボード",
+          dashboardCategory: "カテゴリ分布",
+          dashboardOwasp: "OWASP タグ分布",
+          dashboardHotspot: "直近スキャンのホットスポット",
+          dashboardFilterCategory: "カテゴリフィルター",
+          dashboardFilterOwasp: "OWASP フィルター",
+          exportPng: "チャート PNG 出力",
+          exportCsv: "検出ホットスポット CSV 出力",
+          exportJson: "検出ホットスポット JSON 出力",
+          exportCategoryPng: "カテゴリ図 PNG 出力",
+          exportOwaspPng: "OWASP 図 PNG 出力",
+          exportHotspotPng: "ホットスポット図 PNG 出力",
+          noData: "データなし"
+        }
+      };
+
+      const RULE_BLUEPRINTS = [
+        { category: "SQLi", azureRuleGroup: "REQUEST-942-APPLICATION-ATTACK-SQLI", owaspTop: "A03:2021 Injection", severity: "High", score: 4, signatures: [
+          { key: "UNION_SELECT", pattern: "(?:\\bunion\\b\\s+\\bselect\\b|\\bor\\s+1=1)", desc: "SQL logic bypass / UNION payload" },
+          { key: "STACKED_QUERY", pattern: "(?:;\\s*(?:select|insert|update|delete|drop))", desc: "Stacked SQL query" },
+          { key: "DB_FUNCTION", pattern: "(?:sleep\\(|benchmark\\(|load_file\\()", desc: "Database function abuse" },
+          { key: "NOSQL_OPERATOR", pattern: "(?:\\$ne|\\$where|\\$regex|\\$gt|\\$lt)", desc: "NoSQL operator injection" }
+        ]},
+        { category: "XSS", azureRuleGroup: "REQUEST-941-APPLICATION-ATTACK-XSS", owaspTop: "A03:2021 Injection", severity: "High", score: 4, signatures: [
+          { key: "SCRIPT_TAG", pattern: "<\\s*script[^>]*>", desc: "Script tag injection" },
+          { key: "EVENT_HANDLER", pattern: "on(?:load|error|click|mouseover|focus)\\s*=", desc: "Inline event handler" },
+          { key: "JS_URI", pattern: "javascript:\\s*", desc: "javascript URI payload" },
+          { key: "SVG_PAYLOAD", pattern: "<\\s*svg[^>]*on\\w+\\s*=", desc: "SVG event payload" }
+        ]},
+        { category: "RCE", azureRuleGroup: "REQUEST-933-APPLICATION-ATTACK-PHP", owaspTop: "A03:2021 Injection", severity: "High", score: 5, signatures: [
+          { key: "DANGEROUS_FUNC", pattern: "(?:system\\(|exec\\(|passthru\\(|shell_exec\\()", desc: "Dangerous execution function" },
+          { key: "JAVA_RUNTIME", pattern: "(?:Runtime\\.getRuntime\\(\\)|ProcessBuilder\\()", desc: "Java runtime command execution" },
+          { key: "DESERIAL_HINT", pattern: "(?:rO0AB|java\\.lang\\.Runtime)", desc: "Deserialization execution hint" },
+          { key: "SSTI_EXEC", pattern: "(?:\\{\\{.*?(?:self|class|config).*?\\}\\})", desc: "Template injection exec marker" }
+        ]},
+        { category: "CommandInjection", azureRuleGroup: "REQUEST-932-APPLICATION-ATTACK-RCE", owaspTop: "A03:2021 Injection", severity: "High", score: 5, signatures: [
+          { key: "CHAINED_CMD", pattern: "(?:;\\s*(?:cat|ls|id|whoami|curl)|\\|\\s*(?:cat|bash|sh|powershell))", desc: "Command chain execution" },
+          { key: "CMD_SUBST", pattern: "(?:`[^`]+`|\\$\\([^)]*\\))", desc: "Command substitution" },
+          { key: "WINDOWS_SHELL", pattern: "(?:cmd\\.exe|powershell\\.exe)", desc: "Windows shell execution" },
+          { key: "SHELLSHOCK", pattern: "\\(\\)\\s*\\{\\s*:\\s*;\\s*\\}", desc: "Shellshock signature" }
+        ]},
+        { category: "LFI", azureRuleGroup: "REQUEST-930-APPLICATION-ATTACK-LFI", owaspTop: "A01:2021 Broken Access Control", severity: "High", score: 4, signatures: [
+          { key: "DOT_DOT", pattern: "(?:\\.\\./|\\.\\.\\\\)", desc: "Directory traversal" },
+          { key: "SENSITIVE_FILE", pattern: "(?:/etc/passwd|win.ini|boot.ini|web.config)", desc: "Sensitive file probe" },
+          { key: "WINDOWS_TRAV", pattern: "(?:[A-Za-z]:\\\\Windows\\\\|\\\\\\.\\.\\\\)", desc: "Windows traversal" },
+          { key: "NULL_BYTE", pattern: "(?:%00|\\x00)", desc: "Null byte abuse" }
+        ]},
+        { category: "RFI", azureRuleGroup: "REQUEST-931-APPLICATION-ATTACK-RFI", owaspTop: "A08:2021 Software and Data Integrity Failures", severity: "High", score: 4, signatures: [
+          { key: "REMOTE_URL", pattern: "(?:https?:\\/\\/[^\\s]+\\.(?:php|jsp|txt|json))", desc: "Remote include URL" },
+          { key: "WRAPPER", pattern: "(?:php:\\/\\/input|data:\\/\\/text|expect:\\/\\/)", desc: "Dangerous protocol wrapper" },
+          { key: "UNC_PATH", pattern: "(?:^\\\\\\\\[^\\\\]+\\\\[^\\\\]+)", desc: "UNC include path" },
+          { key: "REMOTE_SCHEME", pattern: "(?:file:\\/\\/|ftp:\\/\\/)", desc: "Remote scheme include" }
+        ]},
+        { category: "ProtocolAttack", azureRuleGroup: "REQUEST-920-PROTOCOL-ENFORCEMENT", owaspTop: "A05:2021 Security Misconfiguration", severity: "Medium", score: 3, signatures: [
+          { key: "ENCODED_TRAV", pattern: "(?:%2e%2e%2f|%252e%252e%252f|%255c)", desc: "Encoded traversal payload" },
+          { key: "METHOD_OVERRIDE", pattern: "x-http-method-override\\s*:\\s*(put|delete|trace|connect)", desc: "Unsafe method override header" },
+          { key: "SMUGGLING", pattern: "(?:transfer-encoding\\s*:\\s*chunked.*content-length\\s*:|content-length\\s*:.*transfer-encoding\\s*:\\s*chunked)", desc: "HTTP request smuggling hint" },
+          { key: "CRLF", pattern: "(?:%0d%0a|\\r\\n)", desc: "CRLF header injection" }
+        ]},
+        { category: "Scanner", azureRuleGroup: "REQUEST-913-SCANNER-DETECTION", owaspTop: "A09:2021 Security Logging and Monitoring Failures", severity: "Low", score: 1, signatures: [
+          { key: "SCANNER_UA", pattern: "user-agent\\s*:\\s*(sqlmap|nikto|acunetix|nmap|w3af)", desc: "Known scanner user-agent" },
+          { key: "WEAK_FILE", pattern: "(?:\\.bak$|\\.old$|\\.swp$|\\.git$|\\.env$)", desc: "Weak file probing" },
+          { key: "ADMIN_PROBE", pattern: "(?:/wp-admin|/administrator|/phpmyadmin)", desc: "Admin endpoint probing" },
+          { key: "BRUTE_TOOL", pattern: "(?:dirbuster|gobuster|ffuf)", desc: "Bruteforce scanner keyword" }
+        ]}
+      ];
+
+      function buildDefaultRules() {
+        const targets = ["query", "path", "header", "bodyRaw", "formData", "body", "all"];
+        let counter = 0;
+        let ruleIndex = 0;
+        const rules = [];
+        for (const bp of RULE_BLUEPRINTS) {
+          for (const sig of bp.signatures) {
+            for (let i = 0; i < 4; i += 1) {
+              const target = targets[(counter + i) % targets.length];
+              const ruleId = `CRS-${910000 + ruleIndex}`;
+              rules.push({
+                id: ruleId,
+                name: `${bp.category} ${sig.key} v${i + 1}`,
+                category: bp.category,
+                severity: bp.severity,
+                score: bp.score,
+                target,
+                pattern: sig.pattern,
+                description: `${sig.desc} (${target})`,
+                sampleUrl: "https://example.com/",
+                attackType: bp.owaspTop,
+                azureRuleGroup: bp.azureRuleGroup,
+                owaspTop: bp.owaspTop,
+                tags: [bp.category, bp.owaspTop, bp.azureRuleGroup, `severity:${bp.severity}`]
+              });
+              ruleIndex += 1;
+            }
+            counter += 1;
+          }
+        }
+        return rules;
+      }
+
+      const DEFAULT_RULES = buildDefaultRules();
+
+      const REQUIRED_CATEGORIES = ["SQLi", "XSS", "RCE", "CommandInjection", "LFI", "RFI", "ProtocolAttack", "Scanner"];
+      const initialRuleText = JSON.stringify(DEFAULT_RULES, null, 2);
+
+      const REGRESSION_CASES = [
+        { id: "T1", name: "SQLi should block", httpMethod: "GET", path: "/search", query: "q=' OR 1=1 --", headerText: "", bodyRaw: "", bodyFormData: "", expectedDecision: "BLOCK" },
+        { id: "T2", name: "XSS should block", httpMethod: "GET", path: "/view", query: "x=<script>alert(1)<\\/script>", headerText: "", bodyRaw: "", bodyFormData: "", expectedDecision: "BLOCK" },
+        { id: "T3", name: "Traversal should block", httpMethod: "GET", path: "/download/../../etc/passwd", query: "", headerText: "", bodyRaw: "", bodyFormData: "", expectedDecision: "BLOCK" },
+        { id: "T4", name: "Scanner UA should log", httpMethod: "GET", path: "/", query: "", headerText: "User-Agent: sqlmap", bodyRaw: "", bodyFormData: "", expectedDecision: "LOG" },
+        { id: "T5", name: "POST body injection should block", httpMethod: "POST", path: "/login", query: "", headerText: "Content-Type: application/json", bodyRaw: "{\"user\":\"admin\",\"pass\":\"' OR 1=1 --\"}", bodyFormData: "", expectedDecision: "BLOCK" },
+        { id: "T6", name: "PUT form-data command should block", httpMethod: "PUT", path: "/profile", query: "", headerText: "Content-Type: multipart/form-data", bodyRaw: "", bodyFormData: "bio=$(whoami)\ncity=taipei", expectedDecision: "BLOCK" },
+        { id: "T7", name: "Normal request should allow", httpMethod: "GET", path: "/products", query: "page=1&sort=asc", headerText: "User-Agent: Mozilla/5.0", bodyRaw: "", bodyFormData: "", expectedDecision: "ALLOW" }
+      ];
+
+      const regexCache = new Map();
+
+      function getRegex(pattern) {
+        if (!regexCache.has(pattern)) regexCache.set(pattern, new RegExp(pattern, "i"));
+        return regexCache.get(pattern);
+      }
+
+      function parseFormDataText(text) {
+        return text
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const idx = line.indexOf("=");
+            if (idx === -1) return `${line}=`;
+            return `${line.slice(0, idx).trim()}=${line.slice(idx + 1).trim()}`;
+          })
+          .join("\n");
+      }
+
+      function getRuleTags(rule) {
+        const tags = Array.isArray(rule.tags) ? [...rule.tags] : [];
+        if (rule.category) tags.push(rule.category);
+        if (rule.owaspTop) tags.push(rule.owaspTop);
+        if (rule.azureRuleGroup) tags.push(rule.azureRuleGroup);
+        if (rule.severity) tags.push(`severity:${rule.severity}`);
+        return [...new Set(tags.filter(Boolean))]
+          .filter((tag) => !/^REQUEST-\d+/.test(tag))
+          .filter((tag) => !/^A\d+\:/.test(tag))
+          .filter((tag) => !/^CRS-\d+\s-/.test(tag))
+          .filter((tag) => tag.length <= 42)
+          .filter((tag) => !/v\d+$/.test(tag));
+      }
+
+      function drawBarChart(container, data, labelKey, valueKey, options = {}) {
+        if (!container || !d3) return;
+        const width = 360;
+        const height = 280;
+        const margin = { top: 24, right: 14, bottom: 70, left: 42 };
+        const w = width - margin.left - margin.right;
+        const h = height - margin.top - margin.bottom;
+        const safe = Array.isArray(data) ? data : [];
+        d3.select(container).selectAll("*").remove();
+        const svg = d3.select(container).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+        const defs = svg.append("defs");
+        const gradient = defs.append("linearGradient").attr("id", `bar-gradient-${Math.random().toString(16).slice(2)}`).attr("x1", "0%").attr("x2", "0%").attr("y1", "0%").attr("y2", "100%");
+        gradient.append("stop").attr("offset", "0%").attr("stop-color", "#2c2c34");
+        gradient.append("stop").attr("offset", "100%").attr("stop-color", "#151519");
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        g.append("rect").attr("x", 0).attr("y", 0).attr("width", w).attr("height", h).attr("fill", "#f6f6f8").attr("rx", 6);
+        const x = d3.scaleBand().domain(safe.map((d) => d[labelKey])).range([0, w]).padding(0.16);
+        const y = d3.scaleLinear().domain([0, d3.max(safe, (d) => d[valueKey]) || 1]).nice().range([h, 0]);
+        g.append("g").call(d3.axisLeft(y).ticks(5)).call((axis) => axis.selectAll("line,path").attr("stroke", "#7c7c88")).call((axis) => axis.selectAll("text").attr("fill", "#4e4e58"));
+        const xAxis = g.append("g").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x));
+        xAxis.selectAll("line,path").attr("stroke", "#7c7c88");
+        xAxis.selectAll("text").attr("transform", "rotate(-20)").style("text-anchor", "end").attr("fill", "#4e4e58");
+        g.selectAll(".bar")
+          .data(safe)
+          .enter()
+          .append("rect")
+          .attr("class", "bar")
+          .attr("x", (d) => x(d[labelKey]))
+          .attr("y", (d) => y(d[valueKey]))
+          .attr("width", x.bandwidth())
+          .attr("height", (d) => h - y(d[valueKey]))
+          .attr("fill", gradient.attr("id") ? `url(#${gradient.attr("id")})` : "#1f1f24")
+          .attr("stroke", "#3a3a42")
+          .attr("rx", 4)
+          .style("cursor", options.onBarClick ? "pointer" : "default")
+          .on("mouseenter", function () { d3.select(this).attr("fill", "#2f2f38"); })
+          .on("mouseleave", function () { d3.select(this).attr("fill", gradient.attr("id") ? `url(#${gradient.attr("id")})` : "#1f1f24"); })
+          .on("click", (_, d) => {
+            if (typeof options.onBarClick === "function") options.onBarClick(d[labelKey]);
+          });
+      }
+
+      function parseHeaders(text) {
+        return text
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const idx = line.indexOf(":");
+            if (idx === -1) return { key: line.toLowerCase(), value: "" };
+            return { key: line.slice(0, idx).trim().toLowerCase(), value: line.slice(idx + 1).trim() };
+          });
+      }
+
+      function hasRuleFields(rule) {
+        const must = ["id", "name", "category", "severity", "score", "target", "pattern", "description"];
+        return must.every((key) => key in rule);
+      }
+
+      function validateRuleShape(rules, requireCategories = true) {
+        if (!Array.isArray(rules) || rules.length === 0) return { ok: false, reason: "規則庫必須是非空陣列。" };
+        for (const rule of rules) {
+          if (!hasRuleFields(rule)) return { ok: false, reason: `規則 ${rule.id || "(未知)"} 欄位不完整。` };
+        }
+        if (requireCategories) {
+          const categories = new Set(rules.map((rule) => rule.category));
+          const missing = REQUIRED_CATEGORIES.filter((category) => !categories.has(category));
+          if (missing.length) return { ok: false, reason: `規則庫分類不齊全，缺少：${missing.join(", ")}` };
+        }
+        return { ok: true, reason: `規則庫驗證通過，共 ${rules.length} 條規則。` };
+      }
+
+      function detect({ httpMethod, path, query, headerText, bodyRaw, bodyFormData, rules, blockThreshold }) {
+        const headers = parseHeaders(headerText);
+        const headerJoined = headers.map((h) => `${h.key}: ${h.value}`).join("\n");
+        const formDataJoined = parseFormDataText(bodyFormData || "");
+        const bodyJoined = [bodyRaw || "", formDataJoined].join("\n").trim();
+        const all = [httpMethod || "", path, query, headerJoined, bodyJoined].join("\n");
+        const sourceMap = {
+          path: path || "",
+          query: query || "",
+          header: headerJoined,
+          bodyRaw: bodyRaw || "",
+          formData: formDataJoined,
+          body: bodyJoined,
+          all
+        };
+        const matches = [];
+
+        for (const rule of rules) {
+          const targetKey = Object.prototype.hasOwnProperty.call(sourceMap, rule.target) ? rule.target : "all";
+          const targetText = sourceMap[targetKey];
+
+          try {
+            const reg = getRegex(rule.pattern);
+            const found = targetText.match(reg);
+            if (found) {
+              matches.push({
+                ...rule,
+                matchedSource: targetKey,
+                evidence: found[0],
+                violationSnippet: String(found[0]).slice(0, 180),
+                attackType: rule.attackType || rule.category,
+                ruleGroup: rule.azureRuleGroup || "custom"
+              });
+            }
+          } catch (error) {
+            matches.push({
+              id: rule.id,
+              name: rule.name,
+              category: rule.category,
+              severity: "Error",
+              score: 0,
+              matchedSource: targetKey,
+              evidence: `Regex error: ${error.message}`,
+              violationSnippet: "",
+              attackType: rule.attackType || rule.category,
+              ruleGroup: rule.azureRuleGroup || "custom",
+              description: "規則格式錯誤"
+            });
+          }
+        }
+
+        const anomalyScore = matches.reduce((sum, item) => sum + Number(item.score || 0), 0);
+        let decision = "ALLOW";
+        if (anomalyScore >= Number(blockThreshold)) decision = "BLOCK";
+        else if (anomalyScore > 0) decision = "LOG";
+
+        return { decision, anomalyScore, matchedCount: matches.length, matches };
+      }
+
+      function buildGeneratedCode(result) {
+        const lines = ["# Generated WAF Rules (Pseudo)", `# Decision: ${result.decision}`, `# AnomalyScore: ${result.anomalyScore}`, ""];
+        result.matches.forEach((match, index) => {
+          lines.push(`SecRule ARGS|REQUEST_HEADERS|REQUEST_URI \"@rx ${match.pattern || ""}\" \\\\`);
+          lines.push(`  \"id:${900000 + index},phase:2,deny,msg:'${match.id} ${match.name}',severity:'${match.severity}'\"`);
+          lines.push("");
+        });
+        if (result.matches.length === 0) lines.push("# No violation matched.");
+        return lines.join("\n");
+      }
+
+      function urlToInputs(urlLike) {
+        try {
+          const u = new URL(urlLike);
+          return { httpMethod: "GET", path: u.pathname, query: u.search.replace(/^\?/, ""), headerText: "", bodyRaw: "", bodyFormData: "" };
+        } catch {
+          return { httpMethod: "GET", path: urlLike || "", query: "", headerText: "", bodyRaw: "", bodyFormData: "" };
+        }
+      }
+
+      function App() {
+        const [lang, setLang] = useState("zh");
+        const [theme, setTheme] = useState(localStorage.getItem("waf_theme") || "light");
+        const t = I18N[lang] || I18N.zh;
+
+        const [tab, setTab] = useState("scan");
+        const [ruleText, setRuleText] = useState(initialRuleText);
+        const [httpMethod, setHttpMethod] = useState("GET");
+        const [path, setPath] = useState("/search/../etc/passwd");
+        const [query, setQuery] = useState("q=' OR 1=1 --&next=javascript:alert(1)");
+        const [headerText, setHeaderText] = useState("User-Agent: sqlmap\nHost: localhost");
+        const [bodyRaw, setBodyRaw] = useState("{\"id\":1,\"filter\":\"' OR 1=1 --\"}");
+        const [bodyFormData, setBodyFormData] = useState("name=alice\ncomment=<svg onload=alert(1)>");
+        const [blockThreshold, setBlockThreshold] = useState(5);
+        const [ruleValidation, setRuleValidation] = useState("尚未驗證規則庫");
+        const [result, setResult] = useState({ decision: "ALLOW", anomalyScore: 0, matchedCount: 0, matches: [] });
+
+        const [ruleSearch, setRuleSearch] = useState("");
+        const [ruleTagFilter, setRuleTagFilter] = useState("all");
+        const [selectedRuleId, setSelectedRuleId] = useState(DEFAULT_RULES[0].id);
+        const [sampleUrl, setSampleUrl] = useState(DEFAULT_RULES[0].sampleUrl || "https://example.com/");
+        const [sampleHeaderText, setSampleHeaderText] = useState("User-Agent: sqlmap");
+        const [sampleTriggered, setSampleTriggered] = useState(null);
+
+        const [customRuleIds, setCustomRuleIds] = useState([]);
+        const [scanMode, setScanMode] = useState("all");
+        const [regressionResult, setRegressionResult] = useState([]);
+        const [dashboardCategoryFilter, setDashboardCategoryFilter] = useState("all");
+        const [dashboardOwaspFilter, setDashboardOwaspFilter] = useState("all");
+        const [lastScanAt, setLastScanAt] = useState(null);
+
+        const importInputRef = useRef(null);
+        const categoryChartRef = useRef(null);
+        const owaspChartRef = useRef(null);
+        const hotspotChartRef = useRef(null);
+
+        const parsedRules = useMemo(() => {
+          try { return JSON.parse(ruleText); } catch { return null; }
+        }, [ruleText]);
+
+        const selectedRule = useMemo(() => {
+          if (!parsedRules) return null;
+          return parsedRules.find((rule) => rule.id === selectedRuleId) || null;
+        }, [parsedRules, selectedRuleId]);
+
+        const filteredRules = useMemo(() => {
+          if (!parsedRules) return [];
+          const q = ruleSearch.trim().toLowerCase();
+          return parsedRules.filter((rule) => {
+            const textMatch = !q || [rule.id, rule.name, rule.category, rule.description, ...(rule.tags || [])].join(" ").toLowerCase().includes(q);
+            const tagMatch = ruleTagFilter === "all" || getRuleTags(rule).includes(ruleTagFilter);
+            return textMatch && tagMatch;
+          });
+        }, [parsedRules, ruleSearch, ruleTagFilter]);
+
+        const allTags = useMemo(() => {
+          if (!parsedRules) return [];
+          return [...new Set(parsedRules.flatMap((rule) => getRuleTags(rule)))].sort();
+        }, [parsedRules]);
+
+        const coverageRules = useMemo(() => {
+          if (!parsedRules) return [];
+          return parsedRules.filter((rule) => {
+            const categoryMatch = dashboardCategoryFilter === "all" || rule.category === dashboardCategoryFilter;
+            const owaspMatch = dashboardOwaspFilter === "all" || rule.owaspTop === dashboardOwaspFilter;
+            return categoryMatch && owaspMatch;
+          });
+        }, [parsedRules, dashboardCategoryFilter, dashboardOwaspFilter]);
+
+        const categoryCoverage = useMemo(() => {
+          const map = new Map();
+          coverageRules.forEach((rule) => map.set(rule.category, (map.get(rule.category) || 0) + 1));
+          return [...map.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+        }, [coverageRules]);
+
+        const owaspCoverage = useMemo(() => {
+          const map = new Map();
+          coverageRules.forEach((rule) => map.set(rule.owaspTop || "Unknown", (map.get(rule.owaspTop || "Unknown") || 0) + 1));
+          return [...map.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+        }, [coverageRules]);
+
+        const hotspotData = useMemo(() => {
+          const map = new Map();
+          (result.matches || []).forEach((item) => {
+            const key = `${item.id} ${item.name}`;
+            map.set(key, (map.get(key) || 0) + 1);
+          });
+          return [...map.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 12);
+        }, [result]);
+
+        const categories = useMemo(() => {
+          if (!parsedRules) return [];
+          return [...new Set(parsedRules.map((rule) => rule.category))].sort();
+        }, [parsedRules]);
+
+        const owaspTags = useMemo(() => {
+          if (!parsedRules) return [];
+          return [...new Set(parsedRules.map((rule) => rule.owaspTop).filter(Boolean))].sort();
+        }, [parsedRules]);
+
+        const customRules = useMemo(() => {
+          if (!parsedRules) return [];
+          const idSet = new Set(customRuleIds);
+          return parsedRules.filter((rule) => idSet.has(rule.id));
+        }, [parsedRules, customRuleIds]);
+
+        const generatedCode = useMemo(() => buildGeneratedCode(result), [result]);
+                useEffect(() => {
+                  if (tab !== "dashboard") return;
+                  const token = requestAnimationFrame(() => {
+                    drawBarChart(categoryChartRef.current, categoryCoverage, "label", "value", {
+                      onBarClick: (label) => setDashboardCategoryFilter(label || "all")
+                    });
+                    drawBarChart(owaspChartRef.current, owaspCoverage, "label", "value", {
+                      onBarClick: (label) => setDashboardOwaspFilter(label || "all")
+                    });
+                    drawBarChart(hotspotChartRef.current, hotspotData, "label", "value", {
+                      onBarClick: (label) => setRuleSearch(label || "")
+                    });
+                  });
+                  return () => cancelAnimationFrame(token);
+                }, [tab, categoryCoverage, owaspCoverage, hotspotData]);
+
+        const statusClass = result.decision === "BLOCK" ? "block" : result.decision === "LOG" ? "warn" : "ok";
+
+        useEffect(() => {
+          document.documentElement.lang = lang === "zh" ? "zh-Hant" : lang;
+        }, [lang]);
+
+        useEffect(() => {
+          document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
+          localStorage.setItem("waf_theme", theme);
+          const meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", theme === "dark" ? "#000000" : "#ffffff");
+        }, [theme]);
+
+        useEffect(() => {
+          if (!selectedRule && filteredRules.length > 0) {
+            setSelectedRuleId(filteredRules[0].id);
+            setSampleUrl(filteredRules[0].sampleUrl || "https://example.com/");
+          }
+        }, [selectedRule, filteredRules]);
+
+        function loadDefaultRules() {
+          setRuleText(JSON.stringify(DEFAULT_RULES, null, 2));
+          setRuleValidation("已載入擴充版預設規則庫。\n");
+          setCustomRuleIds([]);
+        }
+
+        async function loadLatestRuleTemplate() {
+          const url = "https://raw.githubusercontent.com/coreruleset/coreruleset/main/README.md";
+          try {
+            const res = await fetch(url, { cache: "no-store" });
+            if (!res.ok) throw new Error("無法存取遠端規則來源");
+            setRuleValidation("已驗證可連到官方 CRS 專案。可貼上或匯入完整 JSON 規則庫。");
+          } catch (error) {
+            setRuleValidation(`無法連線到 CRS：${error.message}`);
+          }
+        }
+
+        function validateRules() {
+          if (!parsedRules) return setRuleValidation("規則 JSON 格式錯誤，請修正後再檢查。");
+          const v = validateRuleShape(parsedRules, true);
+          setRuleValidation(v.reason);
+        }
+
+        function runDetection() {
+          if (!parsedRules) return setRuleValidation("規則 JSON 格式錯誤，無法檢測。");
+          const v = validateRuleShape(parsedRules, true);
+          if (!v.ok) return setRuleValidation(v.reason);
+          const activeRules = scanMode === "custom" ? customRules : parsedRules;
+          if (scanMode === "custom" && activeRules.length === 0) return setRuleValidation("目前自訂規則庫為空，請先從 RULE 清單加入規則。\n");
+          setRuleValidation(v.reason);
+          setResult(detect({ httpMethod, path, query, headerText, bodyRaw, bodyFormData, rules: activeRules, blockThreshold: Number(blockThreshold) }));
+          setLastScanAt(new Date().toISOString());
+        }
+
+        function exportHotspotJSON() {
+          const blob = new Blob([JSON.stringify({ lastScanAt, hotspots: hotspotData, matches: result.matches || [] }, null, 2)], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "waf-hotspots.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+
+        function exportHotspotCSV() {
+          const headers = ["label", "count"];
+          const rows = hotspotData.map((item) => [item.label.replaceAll('"', '""'), String(item.value)]);
+          const content = [headers.join(","), ...rows.map((row) => `"${row[0]}",${row[1]}`)].join("\n");
+          const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "waf-hotspots.csv";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+
+        function exportHotspotPNG() {
+          const svg = hotspotChartRef.current?.querySelector("svg");
+          if (!svg) return;
+          const serializer = new XMLSerializer();
+          const source = serializer.serializeToString(svg);
+          const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 1200;
+            canvas.height = 720;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const pngUrl = canvas.toDataURL("image/png");
+            const a = document.createElement("a");
+            a.href = pngUrl;
+            a.download = "waf-hotspots.png";
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+          img.src = url;
+        }
+
+        function exportChartPngByRef(chartRef, filename) {
+          const svg = chartRef.current?.querySelector("svg");
+          if (!svg) return;
+          const serializer = new XMLSerializer();
+          const source = serializer.serializeToString(svg);
+          const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 1200;
+            canvas.height = 720;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const pngUrl = canvas.toDataURL("image/png");
+            const a = document.createElement("a");
+            a.href = pngUrl;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+          img.src = url;
+        }
+
+        function exportCategoryPNG() {
+          exportChartPngByRef(categoryChartRef, "waf-category-coverage.png");
+        }
+
+        function exportOwaspPNG() {
+          exportChartPngByRef(owaspChartRef, "waf-owasp-coverage.png");
+        }
+
+        function exportHotspotChartPNG() {
+          exportChartPngByRef(hotspotChartRef, "waf-hotspot-coverage.png");
+        }
+
+        function buildCoveragePayload() {
+          return {
+            generatedAt: new Date().toISOString(),
+            filters: { category: dashboardCategoryFilter, owasp: dashboardOwaspFilter },
+            categoryCoverage,
+            owaspCoverage,
+            hotspotData,
+            lastScanAt
+          };
+        }
+
+        function buildCoverageCSV(payload) {
+          const lines = [
+            "section,label,count",
+            ...payload.categoryCoverage.map((item) => `category,\"${item.label.replaceAll('"', '""')}\",${item.value}`),
+            ...payload.owaspCoverage.map((item) => `owasp,\"${item.label.replaceAll('"', '""')}\",${item.value}`),
+            ...payload.hotspotData.map((item) => `hotspot,\"${item.label.replaceAll('"', '""')}\",${item.value}`)
+          ];
+          return lines.join("\n");
+        }
+
+        function buildCoveragePngDataUrl(payload) {
+          const canvas = document.createElement("canvas");
+          canvas.width = 1200;
+          canvas.height = 700;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#111111";
+          ctx.font = "24px sans-serif";
+          ctx.fillText("WAF Coverage Snapshot", 32, 40);
+          ctx.font = "16px sans-serif";
+          ctx.fillText(`Generated: ${payload.generatedAt}`, 32, 66);
+          const max = Math.max(...payload.hotspotData.map((d) => d.value), 1);
+          payload.hotspotData.slice(0, 10).forEach((item, idx) => {
+            const y = 110 + idx * 52;
+            const width = Math.round((item.value / max) * 760);
+            ctx.fillStyle = "#222";
+            ctx.fillRect(320, y, width, 26);
+            ctx.fillStyle = "#111";
+            ctx.fillText(item.label.slice(0, 38), 32, y + 19);
+            ctx.fillText(String(item.value), 1090, y + 19);
+          });
+          return canvas.toDataURL("image/png");
+        }
+
+        function exportReport() {
+          const blob = new Blob([JSON.stringify({ generatedAt: new Date().toISOString(), input: { httpMethod, path, query, headerText, bodyRaw, bodyFormData }, scanMode, customRuleIds, result }, null, 2)], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "waf-check-report.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+
+        function toggleCustomRule(ruleId) {
+          setCustomRuleIds((prev) => (prev.includes(ruleId) ? prev.filter((id) => id !== ruleId) : [...prev, ruleId]));
+        }
+
+        function testSelectedRule() {
+          if (!selectedRule) return;
+          const sample = urlToInputs(sampleUrl);
+          const r = detect({ httpMethod: sample.httpMethod, path: sample.path, query: sample.query, headerText: sampleHeaderText, bodyRaw: sample.bodyRaw, bodyFormData: sample.bodyFormData, rules: [selectedRule], blockThreshold: Number(blockThreshold) });
+          setSampleTriggered(r.matchedCount > 0);
+        }
+
+        function runRegressionTests() {
+          if (!parsedRules) return;
+          const rs = REGRESSION_CASES.map((testCase) => {
+            const r = detect({ httpMethod: testCase.httpMethod, path: testCase.path, query: testCase.query, headerText: testCase.headerText, bodyRaw: testCase.bodyRaw, bodyFormData: testCase.bodyFormData, rules: parsedRules, blockThreshold: Number(blockThreshold) });
+            const pass = r.decision === testCase.expectedDecision;
+            return { ...testCase, actualDecision: r.decision, pass, score: r.anomalyScore, matchedCount: r.matchedCount };
+          });
+          setRegressionResult(rs);
+        }
+
+        function exportCustomRules() {
+          const blob = new Blob([JSON.stringify(customRules, null, 2)], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "custom-rules.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+
+        function openImportCustomRules() {
+          importInputRef.current?.click();
+        }
+
+        function importCustomRulesFromFile(event) {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const imported = JSON.parse(String(reader.result || "[]"));
+              const v = validateRuleShape(imported, false);
+              if (!v.ok) {
+                setRuleValidation(`匯入失敗：${v.reason}`);
+                return;
+              }
+              if (!parsedRules) {
+                setRuleValidation("目前主規則庫 JSON 格式錯誤，無法匯入。\n");
+                return;
+              }
+
+              const map = new Map(parsedRules.map((rule) => [rule.id, rule]));
+              imported.forEach((rule) => {
+                const nextRule = { ...rule };
+                if (!nextRule.sampleUrl) nextRule.sampleUrl = "https://example.com/";
+                map.set(rule.id, nextRule);
+              });
+              const merged = [...map.values()];
+              setRuleText(JSON.stringify(merged, null, 2));
+              setCustomRuleIds((prev) => [...new Set([...prev, ...imported.map((r) => r.id)])]);
+              setRuleValidation(`已匯入 ${imported.length} 條自訂規則並合併至主規則庫。`);
+            } catch (error) {
+              setRuleValidation(`匯入失敗：${error.message}`);
+            }
+          };
+          reader.readAsText(file, "utf-8");
+          event.target.value = "";
+        }
+
+        useEffect(() => {
+          if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+        }, []);
+
+        useEffect(() => {
+          function onMessage(event) {
+            const msg = event.data;
+            if (!msg || msg.protocol !== "webmcp/1.0" || msg.type !== "request") return;
+            const respond = (response) => event.source?.postMessage({ protocol: "webmcp/1.0", type: "response", id: msg.id, ...response }, "*");
+
+            if (msg.method === "waf.getRules") return respond({ result: parsedRules || [] });
+            if (msg.method === "waf.getCustomRules") return respond({ result: customRules });
+            if (msg.method === "waf.getState") return respond({ result: { lang, theme, blockThreshold: Number(blockThreshold), scanMode, customRuleCount: customRuleIds.length } });
+            if (msg.method === "waf.getCoverage") return respond({ result: { categoryCoverage, owaspCoverage, hotspotData, lastScanAt } });
+
+            if (msg.method === "waf.setCoverageFilter") {
+              const nextCategory = msg.params?.category;
+              const nextOwasp = msg.params?.owasp;
+              if (typeof nextCategory === "string") setDashboardCategoryFilter(nextCategory);
+              if (typeof nextOwasp === "string") setDashboardOwaspFilter(nextOwasp);
+              return respond({ result: { ok: true } });
+            }
+
+            if (msg.method === "waf.exportCoverage") {
+              const format = String(msg.params?.format || "json").toLowerCase();
+              const payload = buildCoveragePayload();
+              if (format === "csv") {
+                return respond({ result: { format: "csv", filename: "waf-coverage.csv", content: buildCoverageCSV(payload), mimeType: "text/csv" } });
+              }
+              if (format === "png") {
+                return respond({ result: { format: "png", filename: "waf-coverage.png", dataUrl: buildCoveragePngDataUrl(payload), mimeType: "image/png" } });
+              }
+              return respond({ result: { format: "json", filename: "waf-coverage.json", content: JSON.stringify(payload, null, 2), mimeType: "application/json" } });
+            }
+
+            if (msg.method === "waf.setRules") {
+              try {
+                const raw = JSON.stringify(msg.params?.rules, null, 2);
+                const parsed = JSON.parse(raw);
+                const v = validateRuleShape(parsed, true);
+                if (!v.ok) return respond({ error: { code: -32001, message: v.reason } });
+                setRuleText(raw);
+                return respond({ result: { ok: true } });
+              } catch (error) {
+                return respond({ error: { code: -32700, message: error.message } });
+              }
+            }
+
+            if (msg.method === "waf.setCustomRules") {
+              const next = msg.params?.ruleIds;
+              if (!Array.isArray(next)) return respond({ error: { code: -32602, message: "ruleIds must be array" } });
+              setCustomRuleIds(next);
+              return respond({ result: { ok: true } });
+            }
+
+            if (msg.method === "waf.importCustomRules") {
+              const imported = msg.params?.rules;
+              if (!Array.isArray(imported)) return respond({ error: { code: -32602, message: "rules must be array" } });
+              const v = validateRuleShape(imported, false);
+              if (!v.ok) return respond({ error: { code: -32001, message: v.reason } });
+              if (!parsedRules) return respond({ error: { code: -32002, message: "main rules parse error" } });
+              const map = new Map(parsedRules.map((rule) => [rule.id, rule]));
+              imported.forEach((rule) => map.set(rule.id, rule));
+              setRuleText(JSON.stringify([...map.values()], null, 2));
+              setCustomRuleIds((prev) => [...new Set([...prev, ...imported.map((r) => r.id)])]);
+              return respond({ result: { ok: true, importedCount: imported.length } });
+            }
+
+            if (msg.method === "waf.scan") {
+              try {
+                const p = msg.params || {};
+                const rules = Array.isArray(p.rules) ? p.rules : parsedRules || [];
+                const rs = detect({
+                  httpMethod: p.httpMethod || "GET",
+                  path: p.path || "",
+                  query: p.query || "",
+                  headerText: p.headerText || "",
+                  bodyRaw: p.bodyRaw || "",
+                  bodyFormData: p.bodyFormData || "",
+                  rules,
+                  blockThreshold: Number(p.blockThreshold || blockThreshold)
+                });
+                return respond({ result: rs });
+              } catch (error) {
+                return respond({ error: { code: -32000, message: error.message } });
+              }
+            }
+
+            if (msg.method === "waf.runRegression") {
+              if (!parsedRules) return respond({ error: { code: -32002, message: "main rules parse error" } });
+              const rs = REGRESSION_CASES.map((testCase) => {
+                const r = detect({ httpMethod: testCase.httpMethod, path: testCase.path, query: testCase.query, headerText: testCase.headerText, bodyRaw: testCase.bodyRaw, bodyFormData: testCase.bodyFormData, rules: parsedRules, blockThreshold: Number(blockThreshold) });
+                return { id: testCase.id, expectedDecision: testCase.expectedDecision, actualDecision: r.decision, pass: r.decision === testCase.expectedDecision };
+              });
+              return respond({ result: rs });
+            }
+
+            if (msg.method === "ai.exchangeContext") {
+              const payload = msg.params?.payload || {};
+              return respond({ result: { ack: true, source: "waf-rule-checker", received: payload, capabilities: ["waf.scan", "waf.getRules", "waf.getCustomRules", "waf.runRegression"] } });
+            }
+
+            respond({ error: { code: -32601, message: "Method not found" } });
+          }
+
+          window.addEventListener("message", onMessage);
+          window.WebMCP = {
+            protocol: "webmcp/1.0",
+            send(method, params = {}, targetWindow = window, targetOrigin = "*") {
+              const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+              targetWindow.postMessage({ protocol: "webmcp/1.0", type: "request", id, method, params }, targetOrigin);
+              return id;
+            }
+          };
+          return () => window.removeEventListener("message", onMessage);
+        }, [parsedRules, customRules, customRuleIds, lang, theme, blockThreshold, scanMode, categoryCoverage, owaspCoverage, hotspotData, lastScanAt, dashboardCategoryFilter, dashboardOwaspFilter]);
+
+        return (
+          <div className="wrap">
+            <header className="header">
+              <div>
+                <h1>{t.title}</h1>
+                <p>{t.subtitle}</p>
+              </div>
+              <div className="toolbar">
+                <label style={{ margin: 0 }}>{t.theme}</label>
+                <select value={theme} onChange={(e) => setTheme(e.target.value)} style={{ width: "auto", minWidth: "96px" }}>
+                  <option value="light">{t.light}</option>
+                  <option value="dark">{t.dark}</option>
+                </select>
+                <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ width: "auto" }}>
+                  <option value="zh">繁體中文</option>
+                  <option value="en">English</option>
+                  <option value="ja">日本語</option>
+                </select>
+              </div>
+            </header>
+
+            <nav className="tabbar">
+              <button className={`tab ${tab === "scan" ? "active" : ""}`} onClick={() => setTab("scan")}>{t.tabScan}</button>
+              <button className={`tab ${tab === "rules" ? "active" : ""}`} onClick={() => setTab("rules")}>{t.tabRules}</button>
+              <button className={`tab ${tab === "regression" ? "active" : ""}`} onClick={() => setTab("regression")}>{t.tabRegression}</button>
+              <button className={`tab ${tab === "dashboard" ? "active" : ""}`} onClick={() => setTab("dashboard")}>{t.tabDashboard}</button>
+            </nav>
+
+            {tab === "scan" && (
+              <div className="grid">
+                <section className="card">
+                  <h2>{t.inputAndRules}</h2>
+                  <label>{t.path}</label>
+                  <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="/api/v1/items/../etc/passwd" />
+
+                  <label>{t.method}</label>
+                  <select value={httpMethod} onChange={(e) => setHttpMethod(e.target.value)}>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                  </select>
+
+                  <label>{t.query}</label>
+                  <textarea value={query} onChange={(e) => setQuery(e.target.value)} placeholder="q=1' OR '1'='1" />
+
+                  <label>{t.header}</label>
+                  <textarea value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="User-Agent: ..." />
+
+                  <label>{t.bodyRaw}</label>
+                  <textarea value={bodyRaw} onChange={(e) => setBodyRaw(e.target.value)} placeholder='{"name":"alice"}' />
+
+                  <label>{t.bodyFormData}</label>
+                  <textarea value={bodyFormData} onChange={(e) => setBodyFormData(e.target.value)} placeholder="key=value" />
+
+                  <div className="kvs">
+                    <div>
+                      <label>{t.threshold}</label>
+                      <input type="number" min="1" value={blockThreshold} onChange={(e) => setBlockThreshold(e.target.value)} />
+                    </div>
+                    <div>
+                      <label>{t.totalRules}</label>
+                      <input disabled value={parsedRules ? parsedRules.length : "JSON Error"} />
+                    </div>
+                    <div>
+                      <label>{t.mode}</label>
+                      <select value={scanMode} onChange={(e) => setScanMode(e.target.value)}>
+                        <option value="all">{t.modeAll}</option>
+                        <option value="custom">{t.modeCustom}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>{t.customCount}</label>
+                      <input disabled value={customRuleIds.length} />
+                    </div>
+                  </div>
+
+                  <label>{t.ruleJson}</label>
+                  <textarea value={ruleText} onChange={(e) => setRuleText(e.target.value)} style={{ minHeight: "220px", fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontSize: "0.8rem" }} />
+
+                  <div className="actions">
+                    <button className="btn-soft" onClick={loadDefaultRules}>{t.loadDefault}</button>
+                    <button className="btn-soft" onClick={loadLatestRuleTemplate}>{t.checkCrs}</button>
+                    <button className="btn-soft" onClick={validateRules}>{t.validate}</button>
+                    <button className="btn-primary" onClick={runDetection}>{t.run}</button>
+                    <button className="btn-danger" onClick={exportReport}>{t.export}</button>
+                    <button className="btn-soft" onClick={exportCustomRules}>{t.exportCustom}</button>
+                    <button className="btn-soft" onClick={openImportCustomRules}>{t.importCustom}</button>
+                    <input ref={importInputRef} type="file" accept="application/json" style={{ display: "none" }} onChange={importCustomRulesFromFile} />
+                  </div>
+
+                  <div className="meta">{ruleValidation}</div>
+                </section>
+
+                <section className="card">
+                  <h2>{t.result}</h2>
+                  <div className={`status ${statusClass}`}>
+                    {t.decision}：<strong>{result.decision}</strong>｜{t.score}：<strong>{result.anomalyScore}</strong>｜{t.matched}：<strong>{result.matchedCount}</strong>
+                  </div>
+
+                  <ul className="result-list">
+                    {result.matches.map((item) => (
+                      <li className="result-item" key={`${item.id}-${item.evidence}`}>
+                        <strong>{item.id} - {item.name}</strong>
+                        <div>{t.attackType}：{item.category}｜Severity：{item.severity}｜Score：{item.score}</div>
+                        <div className="small">{t.resultRuleGroup}：{item.ruleGroup}</div>
+                        <div className="small">{t.resultSource}：{item.matchedSource}</div>
+                        <div className="small">{t.resultViolation}：{item.violationSnippet || item.evidence}</div>
+                        <div className="small">Desc：{item.description}</div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {result.matches.length === 0 && <div className="small" style={{ marginTop: "10px" }}>{t.noMatch}</div>}
+
+                  <h2 style={{ marginTop: "14px" }}>{t.generated}</h2>
+                  <div className="code">{generatedCode}</div>
+                  <div className="small" style={{ marginTop: "8px" }}>{t.notice}</div>
+                </section>
+              </div>
+            )}
+
+            {tab === "rules" && (
+              <div className="grid-rules">
+                <section className="card">
+                  <h2>{t.ruleList}</h2>
+                  <label>{t.searchRule}</label>
+                  <input value={ruleSearch} onChange={(e) => setRuleSearch(e.target.value)} placeholder="CRS-941100 / XSS / SQLi" />
+                  <label>{t.ruleTag}</label>
+                  <select value={ruleTagFilter} onChange={(e) => setRuleTagFilter(e.target.value)}>
+                    <option value="all">{t.allTags}</option>
+                    {allTags.map((tag) => (<option value={tag} key={tag}>{tag}</option>))}
+                  </select>
+
+                  <ul className="rule-list">
+                    {filteredRules.map((rule) => (
+                      <li key={`${rule.id}-${rule.target}`} className={`rule-item ${selectedRuleId === rule.id ? "active" : ""}`} onClick={() => { setSelectedRuleId(rule.id); setSampleUrl(rule.sampleUrl || "https://example.com/"); setSampleTriggered(null); }}>
+                        <strong>{rule.id} - {rule.name}</strong>
+                        <div className="small">{rule.description}</div>
+                        <div className="pill-row">
+                          <span className="pill">{rule.category}</span>
+                          <span className="pill">{rule.severity}</span>
+                          <span className="pill">score: {rule.score}</span>
+                          <span className="pill">target: {rule.target}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {filteredRules.length === 0 && <div className="small">{t.noRule}</div>}
+                </section>
+
+                <section className="card">
+                  <h2>{t.ruleDetail}</h2>
+                  {!selectedRule && <div className="small">{t.selectedHint}</div>}
+
+                  {selectedRule && (
+                    <>
+                      <div><strong>{selectedRule.id} - {selectedRule.name}</strong></div>
+                      <div className="small" style={{ marginTop: "6px" }}>{selectedRule.description}</div>
+
+                      <label>{t.triggerCond}</label>
+                      <div className="code mono">{selectedRule.pattern}</div>
+
+                      <label>{t.attackType}</label>
+                      <div className="inline-row">
+                        <span className="pill">{selectedRule.category}</span>
+                        <span className="pill">severity: {selectedRule.severity}</span>
+                        <span className="pill">score: {selectedRule.score}</span>
+                        <span className="pill">target: {selectedRule.target}</span>
+                      </div>
+
+                      <label>{t.exampleUrl}</label>
+                      <input className="mono" value={sampleUrl} onChange={(e) => setSampleUrl(e.target.value)} />
+                      <label>{t.header}</label>
+                      <textarea value={sampleHeaderText} onChange={(e) => setSampleHeaderText(e.target.value)} />
+
+                      <div className="actions">
+                        <button className="btn-primary" onClick={testSelectedRule}>{t.testRule}</button>
+                        <button className="btn-soft" onClick={() => toggleCustomRule(selectedRule.id)}>
+                          {customRuleIds.includes(selectedRule.id) ? t.removeCustom : t.addCustom}
+                        </button>
+                      </div>
+
+                      {sampleTriggered !== null && <div className={`status ${sampleTriggered ? "block" : "ok"}`}>{sampleTriggered ? t.sampleResHit : t.sampleResNo}</div>}
+                    </>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {tab === "regression" && (
+              <section className="card">
+                <h2>{t.regressionTitle}</h2>
+                <div className="actions">
+                  <button className="btn-primary" onClick={runRegressionTests}>{t.runRegression}</button>
+                </div>
+                <ul className="test-list">
+                  {(regressionResult.length ? regressionResult : REGRESSION_CASES).map((item) => {
+                    const decided = item.actualDecision || "-";
+                    const pass = item.pass;
+                    return (
+                      <li key={item.id} className="test-item">
+                        <strong>{item.id} - {item.name}</strong>
+                        <div className="small">PATH: {item.path} | QUERY: {item.query || "(none)"}</div>
+                        <div className="small">{t.expect}: {item.expectedDecision} | {t.actual}: {decided}</div>
+                        {pass !== undefined && <div className={`status ${pass ? "ok" : "block"}`}>{pass ? t.passed : t.failed}</div>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+
+            {tab === "dashboard" && (
+              <section className="card">
+                <h2>{t.dashboardTitle}</h2>
+                <div className="kvs">
+                  <div>
+                    <label>{t.dashboardFilterCategory}</label>
+                    <select value={dashboardCategoryFilter} onChange={(e) => setDashboardCategoryFilter(e.target.value)}>
+                      <option value="all">ALL</option>
+                      {categories.map((category) => (<option value={category} key={category}>{category}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>{t.dashboardFilterOwasp}</label>
+                    <select value={dashboardOwaspFilter} onChange={(e) => setDashboardOwaspFilter(e.target.value)}>
+                      <option value="all">ALL</option>
+                      {owaspTags.map((tag) => (<option value={tag} key={tag}>{tag}</option>))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="actions">
+                  <button className="btn-soft" onClick={exportCategoryPNG}>{t.exportCategoryPng}</button>
+                  <button className="btn-soft" onClick={exportOwaspPNG}>{t.exportOwaspPng}</button>
+                  <button className="btn-soft" onClick={exportHotspotChartPNG}>{t.exportHotspotPng}</button>
+                  <button className="btn-soft" onClick={exportHotspotCSV}>{t.exportCsv}</button>
+                  <button className="btn-soft" onClick={exportHotspotJSON}>{t.exportJson}</button>
+                </div>
+
+                <div className="grid-dashboard" style={{ marginTop: "12px" }}>
+                  <div className="card">
+                    <h2>{t.dashboardCategory}</h2>
+                    <div ref={categoryChartRef} className="chart-wrap" />
+                    <div className="chart-note">點擊柱狀可直接套用類別篩選</div>
+                    {categoryCoverage.length === 0 && <div className="small">{t.noData}</div>}
+                  </div>
+                  <div className="card">
+                    <h2>{t.dashboardOwasp}</h2>
+                    <div ref={owaspChartRef} className="chart-wrap" />
+                    <div className="chart-note">點擊柱狀可直接套用 OWASP 篩選</div>
+                    {owaspCoverage.length === 0 && <div className="small">{t.noData}</div>}
+                  </div>
+                  <div className="card">
+                    <h2>{t.dashboardHotspot}</h2>
+                    <div ref={hotspotChartRef} className="chart-wrap" />
+                    <div className="chart-note">點擊柱狀可將關鍵字帶回 RULE 搜尋</div>
+                    <div className="small">{lastScanAt || t.noData}</div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <footer className="footer">
+              <a href="https://github.com/Lian0123/waf-rule-checker" target="_blank" rel="noreferrer">Github Project Link</a>
+            </footer>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

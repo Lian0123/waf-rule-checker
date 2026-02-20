@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebMCP 深度通訊範例</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+        background: #f7f7f7;
+        color: #111;
+      }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+      .card {
+        background: #fff;
+        border: 1px solid #d6d6d6;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      h1 { margin: 0 0 8px; font-size: 1.4rem; }
+      p { margin: 0; color: #4a4a4a; }
+      h2 { margin: 0 0 8px; font-size: 1rem; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      label { display: block; font-size: .86rem; font-weight: 600; margin: 10px 0 6px; }
+      input, textarea, select {
+        width: 100%;
+        border: 1px solid #d6d6d6;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: .9rem;
+        background: #fff;
+        color: #111;
+      }
+      textarea { min-height: 88px; resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      button {
+        border: 1px solid #d6d6d6;
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        background: #fff;
+      }
+      .primary { background: #111; color: #fff; border-color: #111; }
+      .soft { background: #fff; color: #111; }
+      .log {
+        background: #111;
+        color: #f0f0f0;
+        border-radius: 8px;
+        padding: 10px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: .82rem;
+        white-space: pre-wrap;
+        min-height: 280px;
+      }
+      .pill {
+        display: inline-block;
+        margin-right: 6px;
+        margin-top: 6px;
+        border: 1px solid #d6d6d6;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: .76rem;
+        color: #4a4a4a;
+      }
+      @media (max-width: 960px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>WebMCP 深度通訊範例</h1>
+        <p>此頁可作為 WebMCP 客戶端 + 伺服端，展示請求、批次請求、通知與雙向資料交換。建議先開啟主頁 index.html。</p>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>連線與快速範例</h2>
+          <label>Target Origin（若同網域可用 *）</label>
+          <input id="targetOrigin" value="*" />
+
+          <div class="actions">
+            <button class="primary" id="openMainBtn">開啟 index.html</button>
+            <button class="soft" id="openPeerBtn">開啟另一個 demo 視窗</button>
+          </div>
+
+          <label>範例模板</label>
+          <select id="exampleTemplate">
+            <option value="">選擇一個範例</option>
+            <option value="scan">掃描請求 waf.scan</option>
+            <option value="getRules">取得所有規則 waf.getRules</option>
+            <option value="getState">取得執行狀態 waf.getState</option>
+            <option value="coverage">取得儀表板資料 waf.getCoverage</option>
+            <option value="coverageFilter">設定儀表板篩選 waf.setCoverageFilter</option>
+            <option value="coverageExport">匯出儀表板資料 waf.exportCoverage</option>
+            <option value="regression">執行回歸測試 waf.runRegression</option>
+            <option value="exchange">AI 情境交換 ai.exchangeContext</option>
+            <option value="setCustom">更新自訂規則 waf.setCustomRules</option>
+          </select>
+
+          <div class="pill">支援：單筆 request</div>
+          <div class="pill">支援：batch request</div>
+          <div class="pill">支援：notification</div>
+          <div class="pill">支援：雙向回應</div>
+        </div>
+
+        <div class="card">
+          <h2>請求編輯器</h2>
+          <label>method</label>
+          <input id="method" value="waf.scan" />
+
+          <label>params (JSON)</label>
+          <textarea id="params">{
+  "httpMethod": "POST",
+  "path": "/search/../etc/passwd",
+  "query": "q=' OR 1=1 --",
+  "headerText": "User-Agent: sqlmap\nContent-Type: application/json",
+  "bodyRaw": "{\"comment\":\"<svg onload=alert(1)>\"}",
+  "bodyFormData": ""
+}</textarea>
+
+          <div class="actions">
+            <button class="primary" id="sendBtn">送出 Request</button>
+            <button class="soft" id="sendBatchBtn">送出 Batch（3筆）</button>
+            <button class="soft" id="sendNotifyBtn">送出 Notification</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>自動示範（避免不會操作）</h2>
+          <p>點擊下列按鈕即可直接跑完整情境，不需手動編輯 JSON。</p>
+          <div class="actions">
+            <button class="soft" id="demoScanBtn">範例1：攻擊掃描</button>
+            <button class="soft" id="demoStateBtn">範例2：讀取狀態與規則數</button>
+            <button class="soft" id="demoExchangeBtn">範例3：AI 情境交換</button>
+            <button class="soft" id="demoBatchBtn">範例4：批次混合請求</button>
+            <button class="soft" id="demoCoverageBtn">範例5：讀取覆蓋率</button>
+            <button class="soft" id="demoCoverageFilterBtn">範例6：設定覆蓋率篩選</button>
+            <button class="soft" id="demoCoverageExportBtn">範例7：下載覆蓋率 JSON/CSV/PNG</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>本頁作為 AI 端點（被動接收）</h2>
+          <p>此頁可回覆其他系統呼叫，示範雙向互通。</p>
+          <div class="pill">ai.getCapabilities</div>
+          <div class="pill">ai.summarizeDetection</div>
+          <div class="pill">ai.echo</div>
+          <div class="pill">ai.mergeContext</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>通訊紀錄</h2>
+        <div class="actions">
+          <button class="soft" id="clearBtn">清除 Log</button>
+        </div>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+
+    <script>
+      let targetWin = null;
+      const pending = new Map();
+      const targetOriginInput = document.getElementById("targetOrigin");
+      const methodEl = document.getElementById("method");
+      const paramsEl = document.getElementById("params");
+      const exampleEl = document.getElementById("exampleTemplate");
+      const logEl = document.getElementById("log");
+
+      const EXAMPLES = {
+        scan: {
+          method: "waf.scan",
+          params: {
+            httpMethod: "POST",
+            path: "/api/../../etc/passwd",
+            query: "q=' OR 1=1 --",
+            headerText: "User-Agent: sqlmap\nContent-Type: application/json",
+            bodyRaw: "{\"bio\":\"' OR 1=1 --\"}",
+            bodyFormData: ""
+          }
+        },
+        getRules: {
+          method: "waf.getRules",
+          params: {}
+        },
+        getState: {
+          method: "waf.getState",
+          params: {}
+        },
+        coverage: {
+          method: "waf.getCoverage",
+          params: {}
+        },
+        coverageFilter: {
+          method: "waf.setCoverageFilter",
+          params: {
+            category: "SQLi",
+            owasp: "all"
+          }
+        },
+        coverageExport: {
+          method: "waf.exportCoverage",
+          params: {
+            format: "json"
+          }
+        },
+        regression: {
+          method: "waf.runRegression",
+          params: {}
+        },
+        exchange: {
+          method: "ai.exchangeContext",
+          params: {
+            payload: {
+              task: "waf-audit",
+              language: "zh-Hant",
+              constraints: ["offline", "pwa", "webmcp"],
+              notes: "Need detailed detection summary"
+            }
+          }
+        },
+        setCustom: {
+          method: "waf.setCustomRules",
+          params: {
+            ruleIds: ["CRS-942100", "CRS-941100", "CRS-930100"]
+          }
+        }
+      };
+
+      function log(message, obj) {
+        const now = new Date().toISOString();
+        const text = obj ? `[${now}] ${message}\n${JSON.stringify(obj, null, 2)}\n` : `[${now}] ${message}\n`;
+        logEl.textContent += text + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function generateId() {
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      function ensureTarget() {
+        if (!targetWin || targetWin.closed) {
+          log("Target window is not ready. Click '開啟 index.html' first.");
+          return false;
+        }
+        return true;
+      }
+
+      function sendRequest(method, params, customId = null) {
+        if (!ensureTarget()) return;
+        const id = customId || generateId();
+        const request = { protocol: "webmcp/1.0", type: "request", id, method, params: params || {} };
+        targetWin.postMessage(request, targetOriginInput.value || "*");
+        pending.set(id, { method, at: Date.now() });
+        log("Sent request:", request);
+        return id;
+      }
+
+      function saveTextFile(filename, content, mimeType) {
+        const blob = new Blob([content], { type: mimeType || "text/plain;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      function saveDataUrl(filename, dataUrl) {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = filename;
+        a.click();
+      }
+
+      function sendNotification(method, params) {
+        if (!ensureTarget()) return;
+        const message = { protocol: "webmcp/1.0", type: "notification", method, params: params || {} };
+        targetWin.postMessage(message, targetOriginInput.value || "*");
+        log("Sent notification:", message);
+      }
+
+      function sendBatch() {
+        if (!ensureTarget()) return;
+        const items = [
+          { method: "waf.getState", params: {} },
+          { method: "waf.getCustomRules", params: {} },
+          {
+            method: "waf.scan",
+            params: {
+              httpMethod: "PUT",
+              path: "/search/../etc/passwd",
+              query: "q=<script>alert(1)<\\/script>",
+              headerText: "User-Agent: sqlmap\nContent-Type: multipart/form-data",
+              bodyRaw: "",
+              bodyFormData: "name=alice\ncomment=$(whoami)"
+            }
+          }
+        ];
+        items.forEach((item) => sendRequest(item.method, item.params));
+      }
+
+      function loadExample(key) {
+        const template = EXAMPLES[key];
+        if (!template) return;
+        methodEl.value = template.method;
+        paramsEl.value = JSON.stringify(template.params, null, 2);
+      }
+
+      document.getElementById("openMainBtn").addEventListener("click", () => {
+        targetWin = window.open("./index.html", "waf-main-window");
+        log("Opened index.html window");
+      });
+
+      document.getElementById("openPeerBtn").addEventListener("click", () => {
+        targetWin = window.open("./webmcp-demo.html", "webmcp-peer-window");
+        log("Opened peer webmcp-demo.html window for bidirectional testing");
+      });
+
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        logEl.textContent = "";
+      });
+
+      document.getElementById("sendBtn").addEventListener("click", () => {
+        let params = {};
+        try {
+          params = JSON.parse(paramsEl.value || "{}");
+        } catch (error) {
+          log(`Invalid params JSON: ${error.message}`);
+          return;
+        }
+        sendRequest(methodEl.value.trim(), params);
+      });
+
+      document.getElementById("sendBatchBtn").addEventListener("click", sendBatch);
+
+      document.getElementById("sendNotifyBtn").addEventListener("click", () => {
+        sendNotification("ai.progress", { step: "demo", message: "This is a fire-and-forget notification" });
+      });
+
+      exampleEl.addEventListener("change", (e) => loadExample(e.target.value));
+
+      document.getElementById("demoScanBtn").addEventListener("click", () => {
+        loadExample("scan");
+        sendRequest(EXAMPLES.scan.method, EXAMPLES.scan.params);
+      });
+
+      document.getElementById("demoStateBtn").addEventListener("click", () => {
+        sendRequest("waf.getState", {});
+        sendRequest("waf.getRules", {});
+      });
+
+      document.getElementById("demoExchangeBtn").addEventListener("click", () => {
+        sendRequest("ai.exchangeContext", EXAMPLES.exchange.params);
+      });
+
+      document.getElementById("demoBatchBtn").addEventListener("click", sendBatch);
+
+      document.getElementById("demoCoverageBtn").addEventListener("click", () => {
+        sendRequest("waf.getCoverage", {});
+      });
+
+      document.getElementById("demoCoverageFilterBtn").addEventListener("click", () => {
+        sendRequest("waf.setCoverageFilter", { category: "XSS", owasp: "all" });
+        sendRequest("waf.getCoverage", {});
+      });
+
+      document.getElementById("demoCoverageExportBtn").addEventListener("click", () => {
+        sendRequest("waf.exportCoverage", { format: "json" });
+        sendRequest("waf.exportCoverage", { format: "csv" });
+        sendRequest("waf.exportCoverage", { format: "png" });
+      });
+
+      function handleIncomingRequest(event, msg) {
+        const respond = (payload) => {
+          event.source && event.source.postMessage({ protocol: "webmcp/1.0", type: "response", id: msg.id, ...payload }, "*");
+        };
+
+        if (msg.method === "ai.getCapabilities") {
+          return respond({ result: { name: "webmcp-demo", version: "1.0", capabilities: ["ai.echo", "ai.mergeContext", "ai.summarizeDetection"] } });
+        }
+
+        if (msg.method === "ai.echo") {
+          return respond({ result: { echoed: msg.params || {}, at: new Date().toISOString() } });
+        }
+
+        if (msg.method === "ai.mergeContext") {
+          const contexts = Array.isArray(msg.params?.contexts) ? msg.params.contexts : [];
+          return respond({ result: { mergedCount: contexts.length, merged: Object.assign({}, ...contexts) } });
+        }
+
+        if (msg.method === "ai.summarizeDetection") {
+          const payload = msg.params?.detection || {};
+          const summary = {
+            decision: payload.decision || "unknown",
+            anomalyScore: payload.anomalyScore || 0,
+            matchedCount: payload.matchedCount || 0,
+            risk: (payload.anomalyScore || 0) >= 5 ? "high" : (payload.anomalyScore || 0) > 0 ? "medium" : "low"
+          };
+          return respond({ result: summary });
+        }
+
+        return respond({ error: { code: -32601, message: "Method not found in demo endpoint" } });
+      }
+
+      window.addEventListener("message", (event) => {
+        const msg = event.data;
+        if (!msg || msg.protocol !== "webmcp/1.0") return;
+
+        if (msg.type === "response") {
+          const pendingInfo = pending.get(msg.id);
+          if (pendingInfo) {
+            const elapsed = Date.now() - pendingInfo.at;
+            pending.delete(msg.id);
+            log(`Received response (${pendingInfo.method}, ${elapsed}ms):`, msg);
+
+            if (pendingInfo.method === "waf.exportCoverage" && msg.result) {
+              if (msg.result.format === "png" && msg.result.dataUrl) {
+                saveDataUrl(msg.result.filename || "waf-coverage.png", msg.result.dataUrl);
+              } else if (typeof msg.result.content === "string") {
+                saveTextFile(msg.result.filename || `waf-coverage.${msg.result.format || "txt"}`, msg.result.content, msg.result.mimeType);
+              }
+            }
+          } else {
+            log(`Received unsolicited response from ${event.origin || "unknown"}:`, msg);
+          }
+          return;
+        }
+
+        if (msg.type === "request") {
+          log(`Received request from ${event.origin || "unknown"}:`, msg);
+          handleIncomingRequest(event, msg);
+          return;
+        }
+
+        if (msg.type === "notification") {
+          log(`Received notification from ${event.origin || "unknown"}:`, msg);
+        }
+      });
+
+      log("WebMCP demo ready. Open index.html and start with template examples.");
+    </script>
+  </body>
+</html>
