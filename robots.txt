@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: /sitemap.xml
+Sitemap: https://lian0123.github.io/waf-rule-checker/sitemap.xml

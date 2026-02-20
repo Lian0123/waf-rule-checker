@@ -1,5 +1,5 @@
-const CACHE_NAME = "waf-rule-checker-v4";
-const APP_SHELL = ["/", "/index.html", "/webmcp-demo.html", "/manifest.webmanifest", "/robots.txt", "/sitemap.xml", "/icon.svg"];
+const CACHE_NAME = "waf-rule-checker-v5";
+const APP_SHELL_FILES = ["", "index.html", "webmcp-demo.html", "manifest.webmanifest", "robots.txt", "sitemap.xml", "icon.svg"];
 const CDN_ASSETS = [
   "https://unpkg.com/react@18/umd/react.development.js",
   "https://unpkg.com/react-dom@18/umd/react-dom.development.js",
@@ -10,7 +10,9 @@ const CDN_ASSETS = [
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      await cache.addAll(APP_SHELL);
+      const scopeBase = self.registration.scope;
+      const appShellUrls = APP_SHELL_FILES.map((file) => new URL(file, scopeBase).toString());
+      await cache.addAll(appShellUrls);
       await Promise.all(
         CDN_ASSETS.map(async (url) => {
           try {
@@ -46,7 +48,10 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          if (event.request.mode === "navigate") return caches.match("/index.html");
+          if (event.request.mode === "navigate") {
+            const fallback = new URL("index.html", self.registration.scope).toString();
+            return caches.match(fallback);
+          }
           return new Response("Offline", { status: 503, statusText: "Offline" });
         });
     })
